@@ -110,3 +110,12 @@ def test_recent_receive_cannot_hide_old_source_snapshot(book, book_raw):
     book.snapshot(book_raw, source="websocket", received=61000, monotonic=10)
     assert book.book_age_ms(10.5) == 60500
     assert book.stale(30000, 10.5)
+
+def test_new_session_baseline_resets_timestamp_ordering(book, book_raw):
+    book_raw["timestamp"] = "1900"
+    book.invalidate("new_session")
+    book.snapshot(book_raw, source="websocket", reset_ordering=True)
+    assert book.last_exchange_update == 1900
+    with pytest.raises(ValueError, match="Out-of-order"):
+        book.changes([], "1899")
+    book.changes([], "1901")
