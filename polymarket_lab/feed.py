@@ -27,12 +27,14 @@ class Feed:
         self.restart = asyncio.Event()
         self.ever_connected = False
         self.resolved_conditions = set()
+        self.restart_requested = False
 
     def invalidate(self, reason):
         for book in self.books.values():
             book.invalidate("market_resolved" if book.condition_id in self.resolved_conditions else reason)
 
     def request_restart(self, reason):
+        self.restart_requested = True
         self.invalidate(reason)
         self.restart.set()
 
@@ -67,6 +69,12 @@ class Feed:
                     self.counters["unfollowed_messages"] += 1
                     continue
                 book = self.books[token_id]
+                if not book.ws_ready:
+                    if self.restart_requested:
+                        self.counters["stale_restart_messages"] += 1
+                        self.incident("stale_restart_message", {"token_id": token_id})
+                        continue
+                    raise ValueError("Delta before WebSocket snapshot")
                 if book.condition_id != payload.get("market"):
                     raise ValueError("Delta condition mismatch")
                 copy = deepcopy(book)
@@ -82,7 +90,8 @@ class Feed:
             if kind == "book":
                 if payload.get("timestamp") is None:
                     raise ValueError("WebSocket snapshot missing source timestamp")
-                book.snapshot(payload, source="websocket")
+                book.snapshot(payload, source="websocket", reset_ordering=not book.ws_ready)
+                self.restart_requested = False
             else:
                 book._identity(payload)
                 book._timestamp(payload)
