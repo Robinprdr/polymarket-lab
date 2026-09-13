@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "polymarket-lab"
+version = "0.1.0"
+description = "Read-only public market data foundation"
+requires-python = ">=3.12"
+dependencies = ["httpx==0.28.1", "websockets==15.0.1"]
+
+[tool.setuptools.packages.find]
+include = ["polymarket_lab*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

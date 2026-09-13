@@ -1,0 +1,110 @@
+{
+  "generated_at_utc": "2026-09-13T08:43:32.045653+00:00",
+  "implementation_commit": "9a84848adbd26144f52bdfed5c3d70545f0174ea",
+  "branch": "feature/read-only-data-foundation",
+  "python": "3.12.14",
+  "automated_tests": {
+    "tests": 46,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "seconds": 3.619,
+    "network": "synthetic REST / local WebSocket"
+  },
+  "live_test": {
+    "command": "python -m polymarket_lab.monitor --duration 15 --discovery-pages 1 --max-markets 2 --health-seconds 3",
+    "exit_code": 2,
+    "markets_discovered": 0,
+    "tokens_discovered": 0,
+    "rest_books_received": 0,
+    "websocket_snapshots_received": 0,
+    "status": "blocked_tls_hostname_mismatch",
+    "final_health": {
+      "timestamp": 1789288604239,
+      "markets_discovered": 0,
+      "markets_seen_last_scan": 0,
+      "tokens_discovered": 0,
+      "markets_followed": 0,
+      "tokens_followed": 0,
+      "tokens_fresh": 0,
+      "tokens_stale_or_unready": 0,
+      "discovery_complete": false,
+      "discovery_status": "error",
+      "discovery_age_ms": 11616,
+      "coverage_complete": false,
+      "websocket_connected": false,
+      "last_message_age_ms": null,
+      "max_book_age_ms": null,
+      "rest_reconciliation_status": {
+        "not_started": 0
+      },
+      "reconciliation_by_token": {},
+      "rest_requests": 3,
+      "rest_retries": 2,
+      "messages_received": 0,
+      "reconnections": 0,
+      "errors": 1,
+      "invalid_messages": 0,
+      "dropped_messages": null,
+      "counters": {
+        "errors": 1
+      },
+      "database_bytes": 172856,
+      "stopping": true
+    },
+    "incidents": [
+      {
+        "timestamp": 1789288592621,
+        "kind": "discovery_error",
+        "details": {
+          "error": "[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: Hostname mismatch, certificate is not valid for 'gamma-api.polymarket.com'. (_ssl.c:1010)",
+          "pages": 0
+        }
+      },
+      {
+        "timestamp": 1789288592623,
+        "kind": "discovery_finished",
+        "details": {
+          "seen": 0,
+          "normalized": 0,
+          "pages": 0,
+          "status": "error"
+        }
+      }
+    ]
+  },
+  "tls_checks": {
+    "tested_at_utc": "2026-09-13T08:41:18.008287+00:00",
+    "checks": [
+      {
+        "host": "gamma-api.polymarket.com",
+        "tls_verified": false,
+        "error_type": "SSLCertVerificationError",
+        "error": "[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: Hostname mismatch, certificate is not valid for 'gamma-api.polymarket.com'. (_ssl.c:1010)"
+      },
+      {
+        "host": "clob.polymarket.com",
+        "tls_verified": false,
+        "error_type": "SSLCertVerificationError",
+        "error": "[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: Hostname mismatch, certificate is not valid for 'clob.polymarket.com'. (_ssl.c:1010)"
+      },
+      {
+        "host": "ws-subscriptions-clob.polymarket.com",
+        "tls_verified": false,
+        "error_type": "SSLCertVerificationError",
+        "error": "[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: Hostname mismatch, certificate is not valid for 'ws-subscriptions-clob.polymarket.com'. (_ssl.c:1010)"
+      }
+    ]
+  },
+  "checks": {
+    "compileall": "passed",
+    "pip_check": "passed",
+    "git_diff_check": "passed"
+  },
+  "github": {
+    "created": false,
+    "pushed": false,
+    "reason": "No gh executable and no repository-creation connector tool"
+  },
+  "acceptance": "Local implementation verified; live acceptance not established"
+}

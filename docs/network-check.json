@@ -1,0 +1,23 @@
+{
+  "tested_at_utc": "2026-09-13T08:41:18.008287+00:00",
+  "checks": [
+    {
+      "host": "gamma-api.polymarket.com",
+      "tls_verified": false,
+      "error_type": "SSLCertVerificationError",
+      "error": "[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: Hostname mismatch, certificate is not valid for 'gamma-api.polymarket.com'. (_ssl.c:1010)"
+    },
+    {
+      "host": "clob.polymarket.com",
+      "tls_verified": false,
+      "error_type": "SSLCertVerificationError",
+      "error": "[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: Hostname mismatch, certificate is not valid for 'clob.polymarket.com'. (_ssl.c:1010)"
+    },
+    {
+      "host": "ws-subscriptions-clob.polymarket.com",
+      "tls_verified": false,
+      "error_type": "SSLCertVerificationError",
+      "error": "[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: Hostname mismatch, certificate is not valid for 'ws-subscriptions-clob.polymarket.com'. (_ssl.c:1010)"
+    }
+  ]
+}
