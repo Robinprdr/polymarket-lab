@@ -3,6 +3,7 @@ from copy import deepcopy
 import json
 import time
 import pytest
+from decimal import Decimal
 from websockets.asyncio.server import serve
 from websockets.asyncio.client import connect as real_connect
 import polymarket_lab.feed as feed_module
@@ -121,6 +122,27 @@ def test_missing_initial_snapshot_timeout(book):
             await feed.session(WS())
         assert not book.valid
     asyncio.run(scenario())
+
+def test_restart_baseline_and_residual_delta_are_safe(book, book_raw):
+    feed = Feed({"100": book}, lambda *a: None)
+    feed.request_restart("rest_divergence")
+    book.invalidate("rest_divergence")
+    feed.handle({"event_type":"price_change","market":"0xabc","timestamp":"1999",
+                 "price_changes":[{"asset_id":"100","side":"BUY","price":"0.4","size":"8"}]})
+    assert feed.counters["stale_restart_messages"] == 1
+    book_raw["timestamp"] = "1900"
+    feed.handle(book_raw)
+    assert book.ws_ready and book.last_exchange_update == 1900
+    feed.handle({"event_type":"price_change","market":"0xabc","timestamp":"1901",
+                 "price_changes":[{"asset_id":"100","side":"BUY","price":"0.4","size":"9"}]})
+    assert str(feed.books["100"].bids[Decimal("0.4")]) == "9"
+
+def test_delta_before_snapshot_without_restart_still_rejected(book):
+    book.invalidate("disconnect")
+    feed = Feed({"100": book}, lambda *a: None)
+    with pytest.raises(ValueError, match="Delta before WebSocket"):
+        feed.handle({"event_type":"price_change","market":"0xabc","timestamp":"2001",
+                     "price_changes":[{"asset_id":"100","side":"BUY","price":"0.4","size":"8"}]})
 
 
 def test_resolved_book_cannot_be_reactivated(book, book_raw):
