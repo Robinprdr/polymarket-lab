@@ -159,7 +159,7 @@ class OrderBook:
         age = self.book_age_ms(monotonic)
         return not self.valid or age is None or age > threshold_ms
 
-    def _timestamp(self, payload):
+    def _timestamp(self, payload, *, reset_ordering=False):
         value = payload.get("timestamp")
         if value is None:
             return None
@@ -168,7 +168,7 @@ class OrderBook:
             raise ValueError("Invalid source timestamp")
         if stamp > now_ms() + 5000:
             raise ValueError("Source timestamp too far in the future (clock skew)")
-        if self.last_exchange_update is not None and stamp < self.last_exchange_update:
+        if not reset_ordering and self.last_exchange_update is not None and stamp < self.last_exchange_update:
             raise ValueError("Out-of-order source timestamp")
         return stamp
 
@@ -182,9 +182,9 @@ class OrderBook:
         self._monotonic_update = time.monotonic() if monotonic is None else monotonic
         self.revision += 1
 
-    def snapshot(self, payload, *, source="rest", received=None, monotonic=None):
+    def snapshot(self, payload, *, source="rest", received=None, monotonic=None, reset_ordering=False):
         self._identity(payload)
-        stamp = self._timestamp(payload)
+        stamp = self._timestamp(payload, reset_ordering=reset_ordering)
         bids, asks = parse_levels(payload["bids"]), parse_levels(payload["asks"])
         tick = optional_number(payload.get("tick_size", self.tick_size))
         minimum = optional_number(payload.get("min_order_size", self.minimum_order_size))
