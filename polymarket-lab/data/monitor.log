@@ -1,0 +1,4 @@
+2026-09-13 18:36:29,355 WARNING polymarket_lab.public_api Public GET transport failure path=/markets/keyset attempt=1
+2026-09-13 18:36:30,480 WARNING polymarket_lab.public_api Public GET transport failure path=/markets/keyset attempt=2
+2026-09-13 18:36:32,622 INFO __main__ discovery_error {"error":"[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: Hostname mismatch, certificate is not valid for 'gamma-api.polymarket.com'. (_ssl.c:1010)","pages":0}
+2026-09-13 18:36:32,624 INFO __main__ discovery_finished {"seen":0,"normalized":0,"pages":0,"status":"error"}
