@@ -35,7 +35,26 @@ class Storage:
         CREATE INDEX IF NOT EXISTS snapshots_time ON book_snapshots(timestamp);
         CREATE INDEX IF NOT EXISTS health_time ON system_health(timestamp);
         CREATE INDEX IF NOT EXISTS incidents_time ON incidents(timestamp);
-        PRAGMA user_version=1;
+        CREATE TABLE IF NOT EXISTS complement_opportunities (
+            id TEXT PRIMARY KEY, session_id TEXT NOT NULL,
+            market_id TEXT NOT NULL, condition_id TEXT NOT NULL,
+            strategy_type TEXT NOT NULL, observation_status TEXT NOT NULL,
+            first_seen_at INTEGER NOT NULL, last_seen_at INTEGER NOT NULL,
+            duration_ms INTEGER NOT NULL, observation_count INTEGER NOT NULL,
+            closed_at INTEGER, close_reason TEXT,
+            optimal_quantity TEXT NOT NULL, gross_cost TEXT NOT NULL,
+            gross_edge TEXT NOT NULL, gross_roi TEXT,
+            fee_status TEXT NOT NULL, estimated_fees TEXT, net_edge TEXT, net_roi TEXT,
+            best_gross_edge_seen TEXT NOT NULL, best_net_edge_seen TEXT,
+            best_quantity_seen TEXT NOT NULL, best_roi_seen TEXT,
+            record_json TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS complement_observations (
+            id INTEGER PRIMARY KEY, episode_id TEXT NOT NULL REFERENCES complement_opportunities(id),
+            observed_at INTEGER NOT NULL, elapsed_ms INTEGER NOT NULL,
+            observation_json TEXT NOT NULL);
+        CREATE INDEX IF NOT EXISTS complement_market ON complement_opportunities(market_id,condition_id);
+        CREATE INDEX IF NOT EXISTS complement_samples ON complement_observations(episode_id,elapsed_ms);
+        PRAGMA user_version=2;
         ''')
 
     def registry(self, markets, *, complete):
@@ -68,6 +87,39 @@ class Storage:
         with self.db:
             self.db.execute("INSERT INTO system_health(timestamp,metrics_json) VALUES (?,?)",
                             (metrics["timestamp"], dumps(metrics)))
+
+    def opportunity(self, episode, *, sample=False):
+        """Latest episode + every positive changed observation, in one transaction.
+
+        Full scalar fields and consumed levels are retained in record_json and
+        observation_json. Frequently queried financial values also have TEXT columns.
+        These research tables are intentionally excluded from Phase 1 retention.
+        """
+        names = ("id", "session_id", "market_id", "condition_id", "strategy_type",
+                 "observation_status", "first_seen_at", "last_seen_at", "duration_ms",
+                 "observation_count", "closed_at", "close_reason", "optimal_quantity",
+                 "gross_cost", "gross_edge", "gross_roi", "fee_status", "estimated_fees",
+                 "net_edge", "net_roi", "best_gross_edge_seen", "best_net_edge_seen",
+                 "best_quantity_seen", "best_roi_seen")
+        from decimal import Decimal
+        values = [str(episode[k]) if isinstance(episode.get(k), Decimal) else episode.get(k) for k in names]
+        columns = ",".join(names) + ",record_json"
+        updates = ",".join(f"{k}=excluded.{k}" for k in names[1:]) + ",record_json=excluded.record_json"
+        with self.db:
+            self.db.execute(f"INSERT INTO complement_opportunities ({columns}) VALUES ({','.join('?' for _ in range(len(names)+1))}) "
+                            f"ON CONFLICT(id) DO UPDATE SET {updates}", (*values, dumps(episode)))
+            if sample:
+                self.db.execute("INSERT INTO complement_observations(episode_id,observed_at,elapsed_ms,observation_json) VALUES (?,?,?,?)",
+                    (episode["id"], episode["last_seen_at"], episode["duration_ms"], dumps(episode)))
+
+    def censor_open_opportunities(self, timestamp):
+        """A process restart cannot establish continuity of an old episode."""
+        import json
+        rows = self.db.execute("SELECT record_json FROM complement_opportunities WHERE closed_at IS NULL").fetchall()
+        for (raw,) in rows:
+            episode = json.loads(raw)
+            episode.update(closed_at=timestamp, close_reason="PROCESS_INTERRUPTED", censored=True)
+            self.opportunity(episode)
 
     def incident(self, kind, details):
         with self.db:

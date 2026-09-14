@@ -1,8 +1,8 @@
 # Polymarket Lab — Arbitrage Engine
 
-**Phase 1 : fondation de données publiques. READ ONLY — NO TRADING CAPABILITY.**
+**Phase 2 : Complement Arbitrage Scanner. READ ONLY — NO TRADING CAPABILITY.**
 
-Ce projet observe les métadonnées et les carnets Polymarket. Il ne prédit aucun événement et ne calcule aucun arbitrage. Il n'intègre ni portefeuille, ni signature, ni secret, ni SDK de trading, ni endpoint d'envoi d'ordre.
+Ce projet observe les métadonnées et les carnets Polymarket. L'option `--scan-complements` mesure les edges structurels YES/NO dans toute la profondeur disponible. Aucun portefeuille, signature, secret, SDK de trading ou endpoint d'envoi d'ordre. Voir [la documentation Phase 2](docs/PHASE2.md) pour le calcul exact, les frais, les épisodes et leurs limites.
 
 ## Installation
 
@@ -89,7 +89,7 @@ Les métadonnées conservent event/market/condition IDs, question, slug, outcome
 
 Le mapping YES/NO utilise les **libellés fournis avec les IDs**. Un tableau `[No, Yes]` est correctement interprété. Des libellés autres que YES/NO restent leurs véritables outcomes. Des longueurs différentes, des labels dupliqués ou des tokens invalides provoquent un rejet visible, jamais une déduction silencieuse.
 
-Les prix et quantités sont des `Decimal` décodés directement depuis JSON. Les floats binaires sont rejetés par le modèle. SQLite les conserve en texte. Les niveaux sont triés bids décroissants / asks croissants à la lecture, quelle que soit l'ordre de l'API. Les deltas remplacent la quantité agrégée du niveau ; une taille zéro supprime le niveau. Toute la profondeur reçue reste en mémoire. `OrderBook.depth()` fournit une interface suffisante pour un futur moteur de coût, sans l'implémenter.
+Les prix et quantités sont des `Decimal` décodés directement depuis JSON. Les floats binaires sont rejetés par le modèle. SQLite les conserve en texte. Les niveaux sont triés bids décroissants / asks croissants à la lecture, quelle que soit l'ordre de l'API. Les deltas remplacent la quantité agrégée du niveau ; une taille zéro supprime le niveau. Toute la profondeur reçue reste en mémoire. Le module `complement.py` construit les coûts cumulés nécessaires au scanner optionnel.
 
 ## WebSocket, fraîcheur et couverture
 
@@ -147,7 +147,7 @@ Pour lire les dernières métriques avec le client SQLite :
 sqlite3 data/polymarket.sqlite3 'SELECT metrics_json FROM system_health ORDER BY id DESC LIMIT 1;'
 ```
 
-Un futur archivage complet autour d'opportunités pourra utiliser le même format, mais aucun déclencheur d'opportunité n'existe dans cette phase.
+Le scanner optionnel ajoute des tables de recherche persistantes `complement_opportunities` et `complement_observations`. Chaque échantillon positif conserve les niveaux consommés ; il ne duplique pas toute la profondeur inutilisée. Ces tables ne sont pas purgées par la politique Phase 1.
 
 ## APIs officielles vérifiées
 
@@ -186,4 +186,4 @@ git push -u origin feature/read-only-data-foundation
 
 Si `origin` existe déjà, vérifier `git remote -v` avant toute modification. Ne pas intégrer de token dans l'URL. Utiliser l'authentification Git habituelle. Ces commandes ne fusionnent rien dans `main`.
 
-Prochaine étape immédiate : lever le blocage réseau et effectuer une observation prolongée avec examen de la couverture, des reconnexions et des divergences. Ensuite seulement, Phase 2 Cost/Depth Engine ; puis NegRisk et Shadow Execution. Aucun de ces moteurs n'est implémenté ici.
+La validation live Phase 1 a depuis été confirmée par l'utilisateur sur 25 marchés / 50 tokens. Les rapports Phase 1 ci-dessus sont historiques et décrivent le blocage réseau rencontré à leur date. La branche Phase 2 est `feature/complement-arbitrage-scanner`, issue de `a3e91904784467eb7963020a99c7223375143ad0`. Le test live Phase 2 se lance avec `python -m polymarket_lab.monitor --scan-complements --max-markets 25 --duration 600 --database data/complement-10min.sqlite3`. NegRisk et Shadow Execution restent hors périmètre ; aucune fusion dans `main`.

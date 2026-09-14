@@ -16,7 +16,7 @@ LOG = logging.getLogger(__name__)
 
 
 class Feed:
-    def __init__(self, books, incident, *, silence_seconds=30, snapshot_timeout=20):
+    def __init__(self, books, incident, *, silence_seconds=30, snapshot_timeout=20, on_books_changed=None):
         self.books = books
         self.incident = incident
         self.silence_seconds = silence_seconds
@@ -28,10 +28,16 @@ class Feed:
         self.ever_connected = False
         self.resolved_conditions = set()
         self.restart_requested = False
+        self.on_books_changed = on_books_changed
+
+    def notify(self, token_ids):
+        if self.on_books_changed is not None:
+            self.on_books_changed(set(token_ids))
 
     def invalidate(self, reason):
         for book in self.books.values():
             book.invalidate("market_resolved" if book.condition_id in self.resolved_conditions else reason)
+        self.notify(self.books)
 
     def request_restart(self, reason):
         self.restart_requested = True
@@ -54,6 +60,7 @@ class Feed:
                 if payload.get("market") == book.condition_id:
                     book.invalidate("market_resolved")
             self.incident("market_resolved", {"condition_id": payload.get("market")})
+            self.notify(tid for tid, b in self.books.items() if b.condition_id == payload.get("market"))
             return
         if kind == "price_change":
             grouped = defaultdict(list)
@@ -104,6 +111,7 @@ class Feed:
             self.counters["unknown_messages"] += 1
             raise ValueError(f"Unknown market event: {kind}")
         self.counters[f"{kind}_events"] += 1
+        self.notify(staged if kind == "price_change" else [token_id])
 
     async def session(self, ws):
         self.restart.clear()

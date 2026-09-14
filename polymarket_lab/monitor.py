@@ -11,6 +11,7 @@ from .feed import Feed
 from .models import OrderBook, parse_market, now_ms, dumps
 from .public_api import PublicAPI
 from .storage import Storage
+from .opportunities import ComplementScanner
 
 LOG = logging.getLogger(__name__)
 
@@ -30,6 +31,23 @@ class Monitor:
         self.feed = Feed(self.books, self.incident)
         self.reconciliation = {}
         self.stopping = False
+        self.scanner = ComplementScanner(self.store, stale_ms=args.stale_seconds*1000) if args.scan_complements else None
+        if self.scanner is not None:
+            self.feed.on_books_changed = self.scan_changed
+
+    def scan_changed(self, token_ids):
+        if self.scanner is None:
+            return
+        touched = {self.books[t].market_id for t in token_ids if t in self.books}
+        available = self.feed.connected and not self.feed.restart.is_set() and not self.stopping
+        for market_id in sorted(touched):
+            market = self.markets.get(market_id)
+            if market is not None:
+                self.scanner.scan(market, self.books, available=available)
+
+    def expire_opportunities(self):
+        self.scanner.expire(self.markets, self.books,
+            available=self.feed.connected and not self.feed.restart.is_set() and not self.stopping)
 
     def incident(self, kind, details):
         self.store.incident(kind, details)
@@ -104,6 +122,9 @@ class Monitor:
                         book.minimum_order_size = m.minimum_order_size
         self.incident("discovery_finished", {"seen": len(seen_ids), "normalized": len(found),
                                               "pages": pages, "status": self.discovery_status})
+        if self.scanner is not None:
+            self.expire_opportunities()
+            self.scan_changed(self.books)
 
     async def bootstrap(self):
         async def one(token_id, book):
@@ -206,6 +227,7 @@ class Monitor:
             "dropped_messages": None,  # no server sequence, loss count cannot be established
             "counters": dict(all_counters), "database_bytes": self.store.size_bytes(),
             "stopping": self.stopping,
+            "complement_summary": self.scanner.summary() if self.scanner else None,
         }
 
     def emit_health(self):
@@ -247,6 +269,8 @@ class Monitor:
                 asyncio.create_task(self.periodic(self.args.reconcile_seconds, self.reconcile)),
                 asyncio.create_task(self.periodic(self.args.snapshot_seconds, self.snapshots)),
             ])
+            if self.scanner is not None:
+                tasks.append(asyncio.create_task(self.periodic(0.1, self.expire_opportunities)))
             await asyncio.gather(*tasks)
         finally:
             for task in tasks:
@@ -255,12 +279,16 @@ class Monitor:
             self.stopping = True
             self.feed.connected = False
             self.feed.invalidate("stopped")
+            if self.scanner is not None:
+                self.scanner.close_all("SESSION_STOPPED")
+                print("COMPLEMENT SUMMARY " + dumps(self.scanner.summary()), flush=True)
             self.emit_health()
 
 
 def parser():
     result = argparse.ArgumentParser(description="READ ONLY — NO TRADING CAPABILITY")
     result.add_argument("--database", type=Path, default=Path("data/polymarket.sqlite3"))
+    result.add_argument("--scan-complements", action="store_true", help="Observe full-depth YES/NO gross edges; READ ONLY")
     result.add_argument("--max-markets", type=int, default=25, help="1..100 markets; coverage cap is always visible")
     result.add_argument("--discovery-pages", type=int, default=0, help="0: all keyset pages; >0: explicit incomplete sample")
     result.add_argument("--duration", type=float, default=0, help="Seconds including startup; 0 runs until Ctrl+C")
